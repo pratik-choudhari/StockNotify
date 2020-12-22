@@ -11,4 +11,4 @@ def send_alert(id: int, sym: str, price: int, curr: int):
         currency = "₹"
     else:
         currency = "$"
-    bot.send_message(chat_id=id, text=f"Alert!\n{sym} triggered at {price}{currency}\ncurrent price: {curr}{currency}")
+    bot.send_message(chat_id=id, text=f"⚠️Alert!\n{sym} triggered at {price}{currency}\ncurrent price: {curr}{currency}")

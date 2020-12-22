@@ -1,3 +1,4 @@
 pandas
 alpha_vantage
 python-telegram-bot
+schedule

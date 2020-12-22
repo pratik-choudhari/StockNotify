@@ -12,7 +12,8 @@ track_status = False
 ticker = StockTicker()
 SYMBOL, PRICE, DELETE = range(3)
 sym, thresh = "", 0
-db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
+# db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
+db = {}
 
 
 def telegrambot():
@@ -25,7 +26,7 @@ def telegrambot():
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start_cmd)],
         states={
-            SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z: ]+$"), symbol_func)],
+            SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z0-9: ]+$"), symbol_func)],
             PRICE: [MessageHandler(Filters.regex('^[0-9]+$'), price_func)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
@@ -39,8 +40,8 @@ def telegrambot():
     )
     unknown_handler = MessageHandler(~Filters.command, unknown)
     dispatcher.add_handler(conv_handler)
-    dispatcher.add_handler(help_handler)
     dispatcher.add_handler(update_handler)
+    dispatcher.add_handler(help_handler)
     dispatcher.add_handler(unknown_handler)
     updater.start_polling()
     updater.idle()
@@ -51,14 +52,19 @@ def help_cmd(update, context):
           " - For indian stocks prefix 'i' or 'I'\n" \
           " - For US stocks directly enter stock symbol.\n" \
           "*Exchange and Currency:*\n" \
-          " - Indian stock price are fetched from BSE and are in INR.\n" \
-          " - US stock price is fetched from NYSE and are in USD.\n" \
+          " - Indian stock prices are fetched from BSE and are in INR.\n" \
+          " - US stock prices are fetched from NYSE and are in USD.\n" \
+          "*Commands:*\n" \
+          " - /start to start the conversation\n" \
+          " - /cancel to end the conversation\n" \
+          " - /editgtt to list and edit triggers\n" \
           "*All LTP displayed are close prices.*"
     context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode='markdown')
 
 
 def start_cmd(update, context):
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to stock ticker bot, "
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to stock ticker bot📈, "
+                                                                    "Use /help to know more, "
                                                                     "please enter stock symbol")
     return SYMBOL
 
@@ -77,8 +83,7 @@ def symbol_func(update, context):
 def price_func(update, context):
     global thresh
     thresh = update.message.text
-    # curr = get_curr_price(sym)
-    curr = 0
+    curr = get_curr_price(sym)
     if sym[:3] == "BSE":
         currency = "₹"
     else:
@@ -89,11 +94,12 @@ def price_func(update, context):
                                                                         f"LTP is {currency}{curr}")
     else:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f"Cannot get LTP")
+    return ConversationHandler.END
 
 
 def cancel(update, context):
     update.message.reply_text(
-        'Bye! Ending Conversation.'
+        'Ending conversation👋'
     )
     return ConversationHandler.END
 
@@ -104,17 +110,20 @@ def unknown(update, context):
 
 def list_triggers(update, context):
     id = update.effective_chat.id
-    keys = list(db[id].keys())
-    if keys:
-        text = "You have following GTTs set:\n"
-        for key in keys:
-            for val in db[id][key]:
-                text += f"{key} at {int(val)}\n"
-        text += "Enter gtt number to delete\n"
-    else:
-        text = "You do not have any GTTs set."
+    user_data = db.get(id)
+    if user_data:
+        keys = list(user_data.keys())
+        if keys:
+            text = "You have following GTTs set:\n"
+            for key in keys:
+                for val in db[id][key]:
+                    text += f"{key} at {int(val)}\n"
+            text += "Enter gtt number to delete\n"
+            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+            return DELETE
+    text = "You do not have any GTTs set."
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-    return DELETE
+    return ConversationHandler.END
 
 
 def update_triggers(update, context):

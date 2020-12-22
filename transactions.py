@@ -1,8 +1,13 @@
 from gettickerprice import StockTicker
 from sendalert import send_alert
+import schedule
+import time
+import threading
 
-db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
-global_symbol = {'LON:CEY': [1129060218]}
+db = {}
+global_symbol = {}
+# db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
+# global_symbol = {'LON:CEY': [1129060218]}
 ticker = StockTicker()
 
 
@@ -34,13 +39,32 @@ def new_trigger(chatid: int, symbol: str, price: str):
         return True
 
 
-def screener():
-    for sym in global_symbol:
-        ticker.set_sym(sym)
-        res = int(ticker.get_ticker())
-        for id in global_symbol[sym]:
-            if res >= int(db[id][sym][0]):
-                send_alert(id, sym, int(db[id][sym][0]), int(res))
+def delete_trigger(id, sym, price):
+    try:
+        db[int(id)][sym].remove(price)
+        global_symbol[sym].remove(int(id))
+    except KeyError as e:
+        print(e)
+        return False
+    else:
+        return True
 
 
-# screener()
+def loop_wrapper():
+    def screener():
+        if global_symbol:
+            for sym in global_symbol:
+                ticker.set_sym(sym)
+                res = int(ticker.get_ticker())
+                for id in global_symbol[sym]:
+                    if res >= int(db[id][sym][0]):
+                        send_alert(id, sym, int(db[id][sym][0]), int(res))
+                        delete_trigger(id, sym, db[id][sym][0])
+
+    schedule.every(1).minutes.do(screener)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+
+threading.Thread(target=loop_wrapper).start()
