@@ -1,23 +1,33 @@
-from gettickerprice import StockTicker
 import json
-from transactions import new_trigger
+import logging
+
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
-# from telegramutils import telegrambot
+from utils.transactions import new_trigger
+from utils.gettickerprice import StockTicker
+from buffer import db
+
 
 track_status = False
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
+stream = logging.StreamHandler()
+stream.setFormatter(formatter)
+logger.addHandler(stream)
 
+logger.info("App start")
 ticker = StockTicker()
 SYMBOL, PRICE, DELETE = range(3)
 sym, thresh = "", 0
 # db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
-db = {}
+# db = {}
 
 
 def telegrambot():
-    with open("Telegram_token.json", "r") as f:
+    with open("config/Telegram_token.json", "r") as f:
         api_key = json.load(f)
 
     updater = Updater(token=api_key["key"], use_context=True)
@@ -83,6 +93,7 @@ def symbol_func(update, context):
 def price_func(update, context):
     global thresh
     thresh = update.message.text
+    logger.info(f"Getting {sym} LTP")
     curr = get_curr_price(sym)
     if sym[:3] == "BSE":
         currency = "₹"
@@ -109,15 +120,18 @@ def unknown(update, context):
 
 
 def list_triggers(update, context):
-    id = update.effective_chat.id
-    user_data = db.get(id)
+    chatid = update.effective_chat.id
+    user_data = db.get(chatid)
+    logger.info(f"Listing trigger for {chatid}")
+    idx = 0
     if user_data:
         keys = list(user_data.keys())
         if keys:
             text = "You have following GTTs set:\n"
             for key in keys:
-                for val in db[id][key]:
-                    text += f"{key} at {int(val)}\n"
+                for val in db[chatid][key]:
+                    idx += 1
+                    text += f"{idx}. {key} at {int(val)}\n"
             text += "Enter gtt number to delete\n"
             context.bot.send_message(chat_id=update.effective_chat.id, text=text)
             return DELETE
@@ -126,38 +140,51 @@ def list_triggers(update, context):
     return ConversationHandler.END
 
 
+def purge_empty(chatid):
+    if not db[chatid]:
+        del db[chatid]
+    keys = list(db[chatid].keys()).copy()
+    for key in keys:
+        if not db[chatid][key]:
+            del db[chatid][key]
+    logger.debug(f"{db} after purging {chatid}")
+
+
 def update_triggers(update, context):
     curr = 0
-    id = update.effective_chat.id
+    chatid = update.effective_chat.id
     indexes = sorted(list(map(lambda x: int(x)-1, update.message.text.split())))
-    print(indexes)
-    for key in db[id]:
+    logger.debug(f"User indexes: {indexes}")
+    user_data = db[chatid]
+    for key in user_data:
         if indexes:
-            if (len(db[id][key])+curr) >= indexes[0]:
-                for i in range(len(db[id][key])):
+            if (len(db[chatid][key]) + curr) >= indexes[0]:
+                for i in range(len(db[chatid][key])):
+                    print(0)
                     if indexes:
                         if indexes[0]-curr == 1:
                             print(i)
                             print('aat')
                             indexes.pop(0)
-                            db[id][key].pop(i)
+                            db[chatid][key].pop(i)
                         curr += 1
                     else:
-                        print(db)
+                        purge_empty(chatid)
+                        logger.debug("indexes empty")
+                        context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger deleted")
                         return ConversationHandler.END
             else:
-                print(db)
-                return ConversationHandler.END
-        else:
-            curr += len(db[id][key])-1
-    print(db)
+                curr += len(db[chatid][key]) - 1
+    purge_empty(chatid)
+    logger.debug("end of stocks")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
     return ConversationHandler.END
 
 
 def get_curr_price(s):
     ticker.set_sym(s)
     res = ticker.get_ticker()
-    print(res)
+    logger.info(f"LTP for {s}: {res}")
     if res:
         return res
     else:

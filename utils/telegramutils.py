@@ -2,7 +2,6 @@ from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
 import json
-from main import controller
 
 
 SYMBOL, PRICE = range(2)
@@ -10,7 +9,7 @@ sym, thresh = "", 0
 
 
 def telegrambot():
-    with open("Telegram_token.json", "r") as f:
+    with open("../config/Telegram_token.json", "r") as f:
         api_key = json.load(f)
 
     updater = Updater(token=api_key["key"], use_context=True)
