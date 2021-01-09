@@ -4,12 +4,9 @@ import logging
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
-from utils.transactions import new_trigger
+from utils.transactions import new_trigger, query_triggers, delete_trigger
 from utils.gettickerprice import StockTicker
-from buffer import db
 
-
-track_status = False
 
 # set up logger object
 logger = logging.getLogger(__name__)
@@ -43,13 +40,15 @@ def telegrambot():
         fallbacks=[CommandHandler('cancel', cancel)],
     )
     help_handler = CommandHandler('help', help_cmd)
+    list_handler = CommandHandler('list', list_triggers)
     update_handler = ConversationHandler(
-        entry_points=[CommandHandler('editgtt', list_triggers)],
+        entry_points=[CommandHandler('editgtt', list_wrapper)],
         states={
             DELETE: [MessageHandler(Filters.regex("^[0-9]{1}$"), update_triggers)]},
         fallbacks=[CommandHandler('cancel', cancel)]
     )
     unknown_handler = MessageHandler(~Filters.command, unknown)
+    dispatcher.add_handler(list_handler)
     dispatcher.add_handler(gtt_handler)
     dispatcher.add_handler(update_handler)
     dispatcher.add_handler(help_handler)
@@ -120,25 +119,38 @@ def unknown(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
 
 
+index_data = {}
+
+
 def list_triggers(update, context):
+    global index_data
+    index_data = {}
     chatid = update.effective_chat.id
-    user_data = db.get(chatid)
+    user_data = query_triggers(chatid)
     logger.info(f"Listing trigger for {chatid}")
     idx = 0
     if user_data:
         keys = list(user_data.keys())
-        if keys:
-            text = "You have following GTTs set:\n"
-            for key in keys:
-                for val in db[chatid][key]:
-                    idx += 1
-                    text += f"{idx}. {key} at {int(val)}\n"
-            text += "Enter gtt number to delete\n"
-            context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-            return DELETE
+        text = "You have following GTTs set:\n"
+        for key in keys:
+            for val in user_data[key]:
+                idx += 1
+                text += f"{idx}. {key} at {int(val)}\n"
+                index_data[idx] = [key, val]
+        context.bot.send_message(chat_id=update.effective_chat.id, text=text)
+        return True
     text = "You do not have any GTTs set."
     context.bot.send_message(chat_id=update.effective_chat.id, text=text)
-    return ConversationHandler.END
+    return False
+
+
+def list_wrapper(update, context):
+    ret = list_triggers(update, context)
+    if not ret:
+        return ConversationHandler.END
+    else:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Enter gtt number to delete\n")
+        return DELETE
 
 
 def purge_empty(chatid):
@@ -152,34 +164,22 @@ def purge_empty(chatid):
 
 
 def update_triggers(update, context):
-    curr = 0
+    global index_data
     chatid = update.effective_chat.id
-    indexes = sorted(list(map(lambda x: int(x)-1, update.message.text.split())))
+    indexes = sorted(list(map(lambda x: int(x), update.message.text.split())))
     logger.debug(f"User indexes: {indexes}")
-    user_data = db[chatid]
-    for key in user_data:
-        if indexes:
-            if (len(db[chatid][key]) + curr) >= indexes[0]:
-                for i in range(len(db[chatid][key])):
-                    print(0)
-                    if indexes:
-                        if indexes[0]-curr == 1:
-                            print(i)
-                            print('aat')
-                            indexes.pop(0)
-                            db[chatid][key].pop(i)
-                        curr += 1
-                    else:
-                        purge_empty(chatid)
-                        logger.debug("indexes empty")
-                        context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger deleted")
-                        return ConversationHandler.END
-            else:
-                curr += len(db[chatid][key]) - 1
-    purge_empty(chatid)
-    logger.debug("end of stocks")
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
-    return ConversationHandler.END
+    if indexes:
+        for idx in indexes:
+            delete_trigger(chatid, index_data[idx][0], index_data[idx][1])
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger deleted")
+        logger.debug("triggers deleted")
+        index_data = {}
+        return ConversationHandler.END
+    else:
+        logger.debug("indexes empty")
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
+        index_data = {}
+        return ConversationHandler.END
 
 
 def get_curr_price(s):

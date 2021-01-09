@@ -14,7 +14,7 @@ class StockTicker:
 
     def get_ticker(self):
         if not useAPI:
-            return 959
+            return -1
         try:
             data, meta_data = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
             return data.iloc[0, 3]
