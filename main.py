@@ -11,14 +11,15 @@ from buffer import db
 
 track_status = False
 
+# set up logger object
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
 stream = logging.StreamHandler()
 stream.setFormatter(formatter)
 logger.addHandler(stream)
+logger.info("Logger init")
 
-logger.info("App start")
 ticker = StockTicker()
 SYMBOL, PRICE, DELETE = range(3)
 sym, thresh = "", 0
@@ -33,7 +34,7 @@ def telegrambot():
     updater = Updater(token=api_key["key"], use_context=True)
     dispatcher = updater.dispatcher
 
-    conv_handler = ConversationHandler(
+    gtt_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start_cmd)],
         states={
             SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z0-9: ]+$"), symbol_func)],
@@ -49,7 +50,7 @@ def telegrambot():
         fallbacks=[CommandHandler('cancel', cancel)]
     )
     unknown_handler = MessageHandler(~Filters.command, unknown)
-    dispatcher.add_handler(conv_handler)
+    dispatcher.add_handler(gtt_handler)
     dispatcher.add_handler(update_handler)
     dispatcher.add_handler(help_handler)
     dispatcher.add_handler(unknown_handler)
@@ -185,6 +186,7 @@ def get_curr_price(s):
     ticker.set_sym(s)
     res = ticker.get_ticker()
     logger.info(f"LTP for {s}: {res}")
+
     if res:
         return res
     else:
