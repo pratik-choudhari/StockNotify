@@ -38,7 +38,7 @@ def new_trigger(chatid: int, symbol: str, price: str):
         if trig.find_one({"client": str(chatid)}):
             trig.update_one({"client": str(chatid)}, {"$push": {f"orders.{symbol}": str(price)}})
         else:
-            trig.insert_one({"client": str(chatid), "orders": {f"orders.{symbol}": [str(price)]}})
+            trig.insert_one({"client": str(chatid), "orders": {f"{symbol}": [str(price)]}})
         # if chatid not in db:
         #     db[chatid] = {symbol: [price]}
         # else:
@@ -61,6 +61,12 @@ def new_trigger(chatid: int, symbol: str, price: str):
 def delete_trigger(chatid: int, sym: str, price: str):
     try:
         trig.update_one({"client": str(chatid)}, {"$pull": {f"orders.{sym}": str(price)}})
+        res = trig.aggregate([{"$match": {"client": "1129060218"}}, {"$project": {"_id": "$client",
+                                                                                  "count": {
+                                                                                      "$size": "$orders.BSE:HAL"}}}])
+        if list(res)[0]['count'] == 0:
+            trig.update_one({"client": str(chatid)}, {"$unset": {f"orders.{sym}": ""}})
+            logger.info(f"unset {chatid} {sym}")
         # r.hdel(str(chatid), [])
         # db[int(chatid)][sym].remove(price)
         # global_symbol[sym].remove(int(chatid))
@@ -68,13 +74,17 @@ def delete_trigger(chatid: int, sym: str, price: str):
         logger.debug("Error deleting trigger from db")
         return False
     else:
+        logger.info(f"delete-> {chatid} {sym} {price}")
         return True
 
 
 def query_triggers(chatid: int):
     try:
         res = trig.find_one({"client": str(chatid)})
-        return res['orders']
+        if res:
+            return res['orders']
+        else:
+            return False
         # r.hdel(str(chatid), [])
         # db[int(chatid)][sym].remove(price)
         # global_symbol[sym].remove(int(chatid))
