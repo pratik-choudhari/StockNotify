@@ -1,3 +1,6 @@
+## db schema
+{userid: {symbol: [list of price]}}
+
 ## main.py
 
 - Includes telegram bot

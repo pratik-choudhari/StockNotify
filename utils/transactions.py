@@ -11,6 +11,7 @@ client = MongoClient('localhost', 27017)
 
 db = client.stockticker
 trig = db.triggers
+glob = db.globalsymbols
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -19,10 +20,7 @@ stream = logging.StreamHandler()
 stream.setFormatter(formatter)
 logger.addHandler(stream)
 
-# db = {}
 global_symbol = {}
-# db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
-# global_symbol = {'LON:CEY': [1129060218]}
 ticker = StockTicker()
 
 
