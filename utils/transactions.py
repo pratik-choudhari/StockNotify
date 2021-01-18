@@ -2,9 +2,10 @@ from utils.gettickerprice import StockTicker
 from utils.sendalert import send_alert
 import schedule
 import time
-import logging
+import os
+
 import threading
-# from buffer import db, global_symbol
+from utils import initlogger
 from pymongo import MongoClient
 
 client = MongoClient('localhost', 27017)
@@ -13,12 +14,7 @@ db = client.stockticker
 trig = db.triggers
 glob = db.globalsymbols
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
-stream = logging.StreamHandler()
-stream.setFormatter(formatter)
-logger.addHandler(stream)
+logger = initlogger.getloggerobj(os.path.basename(__file__))
 
 global_symbol = {}
 ticker = StockTicker()
@@ -37,19 +33,8 @@ def new_trigger(chatid: int, symbol: str, price: str):
             trig.update_one({"client": str(chatid)}, {"$push": {f"orders.{symbol}": str(price)}})
         else:
             trig.insert_one({"client": str(chatid), "orders": {f"{symbol}": [str(price)]}})
-        # if chatid not in db:
-        #     db[chatid] = {symbol: [price]}
-        # else:
-        #     if symbol not in db[chatid]:
-        #         db[chatid][symbol] = [price]
-        #     else:
-        #         db[chatid][symbol].append(price)
-        # if symbol not in global_symbol:
-        #     global_symbol[symbol] = [chatid]
-        # else:
-        #     global_symbol[symbol].append(chatid)
     except Exception as e:
-        logger.debug(f"{e} in creating new trigger")
+        logger.critical(f"{e} in creating new trigger")
         return False
     else:
         logger.info(f"new trigger for {chatid} for {symbol}")
@@ -59,17 +44,14 @@ def new_trigger(chatid: int, symbol: str, price: str):
 def delete_trigger(chatid: int, sym: str, price: str):
     try:
         trig.update_one({"client": str(chatid)}, {"$pull": {f"orders.{sym}": str(price)}})
-        res = trig.aggregate([{"$match": {"client": "1129060218"}}, {"$project": {"_id": "$client",
+        res = trig.aggregate([{"$match": {"client": str(chatid)}}, {"$project": {"_id": "$client",
                                                                                   "count": {
-                                                                                      "$size": "$orders.BSE:HAL"}}}])
+                                                                                      "$size": f"$orders.{sym}"}}}])
         if list(res)[0]['count'] == 0:
             trig.update_one({"client": str(chatid)}, {"$unset": {f"orders.{sym}": ""}})
             logger.info(f"unset {chatid} {sym}")
-        # r.hdel(str(chatid), [])
-        # db[int(chatid)][sym].remove(price)
-        # global_symbol[sym].remove(int(chatid))
     except KeyError as e:
-        logger.debug("Error deleting trigger from db")
+        logger.critical("Error deleting trigger from db")
         return False
     else:
         logger.info(f"delete-> {chatid} {sym} {price}")
@@ -83,11 +65,8 @@ def query_triggers(chatid: int):
             return res['orders']
         else:
             return False
-        # r.hdel(str(chatid), [])
-        # db[int(chatid)][sym].remove(price)
-        # global_symbol[sym].remove(int(chatid))
     except KeyError as e:
-        logger.debug("Error listing trigger from db")
+        logger.critical("Error listing trigger from db")
         return False
 
 
@@ -108,4 +87,4 @@ def loop_wrapper():
         time.sleep(1)
 
 
-threading.Thread(target=loop_wrapper).start()
+# threading.Thread(target=loop_wrapper).start()

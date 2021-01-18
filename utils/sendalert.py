@@ -1,13 +1,9 @@
 from telegram import Bot
 import json
-import logging
+import os
+from utils import initlogger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
-stream = logging.StreamHandler()
-stream.setFormatter(formatter)
-logger.addHandler(stream)
+logger = initlogger.getloggerobj(os.path.basename(__file__))
 
 with open("./config/Telegram_token.json", "r") as f:
     api_key = json.load(f)

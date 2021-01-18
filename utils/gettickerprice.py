@@ -1,7 +1,7 @@
 from alpha_vantage.timeseries import TimeSeries
 import json
 
-useAPI = False
+useAPI = True
 
 
 class StockTicker:

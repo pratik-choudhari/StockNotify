@@ -1,6 +1,6 @@
 import json
-import logging
-
+import os
+from utils import initlogger
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
@@ -9,12 +9,7 @@ from utils.gettickerprice import StockTicker
 
 
 # set up logger object
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s:%(name)s:%(message)s')
-stream = logging.StreamHandler()
-stream.setFormatter(formatter)
-logger.addHandler(stream)
+logger = initlogger.getloggerobj(os.path.basename(__file__))
 logger.info("Logger init")
 
 ticker = StockTicker()
@@ -100,9 +95,11 @@ def price_func(update, context):
     else:
         currency = "$"
     if curr:
-        new_trigger(update.effective_chat.id, sym, thresh)
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Screener set for {sym} at {thresh}, "
-                                                                        f"LTP is {currency}{curr}")
+        if new_trigger(update.effective_chat.id, sym, thresh):
+            context.bot.send_message(chat_id=update.effective_chat.id, text=f"Screener set for {sym} at {thresh}, "
+                                                                            f"LTP is {currency}{curr}")
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id, text="error inserting in db")
     else:
         context.bot.send_message(chat_id=update.effective_chat.id, text=f"Cannot get LTP")
     return ConversationHandler.END
@@ -153,27 +150,23 @@ def list_wrapper(update, context):
         return DELETE
 
 
-def purge_empty(chatid):
-    if not db[chatid]:
-        del db[chatid]
-    keys = list(db[chatid].keys()).copy()
-    for key in keys:
-        if not db[chatid][key]:
-            del db[chatid][key]
-    logger.debug(f"{db} after purging {chatid}")
-
-
 def update_triggers(update, context):
     global index_data
     chatid = update.effective_chat.id
     indexes = sorted(list(map(lambda x: int(x), update.message.text.split())))
     logger.debug(f"User indexes: {indexes}")
+    op_status = True
     if indexes:
         for idx in indexes:
-            delete_trigger(chatid, index_data[idx][0], index_data[idx][1])
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger deleted")
-        logger.debug("triggers deleted")
-        index_data = {}
+            if not delete_trigger(chatid, index_data[idx][0], index_data[idx][1]):
+                op_status = False
+                break
+        if not op_status:
+            context.bot.send_message(chat_id=update.effective_chat.id, text="Error in deletion in db")
+        else:
+            context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger deleted")
+            logger.debug("triggers deleted")
+            index_data = {}
         return ConversationHandler.END
     else:
         logger.debug("indexes empty")
