@@ -1,7 +1,7 @@
 from alpha_vantage.timeseries import TimeSeries
 import json
 
-useAPI = True
+useAPI = False
 
 
 class StockTicker:
@@ -14,7 +14,7 @@ class StockTicker:
 
     def get_ticker(self):
         if not useAPI:
-            return -1
+            return 900
         try:
             data, meta_data = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
             return data.iloc[0, 3]

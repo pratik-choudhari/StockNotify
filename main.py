@@ -63,7 +63,8 @@ def help_cmd(update, context):
           " - /start to start the conversation\n" \
           " - /cancel to end the conversation\n" \
           " - /editgtt to list and edit triggers\n" \
-          "*All LTP displayed are close prices.*"
+          "*All LTP displayed are close prices.\n*" \
+          "*Duplicate triggers will be ignore, even if acknowledgement is sent*"
     context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode='markdown')
 
 
@@ -79,8 +80,6 @@ def symbol_func(update, context):
     sym = update.message.text.upper()
     if sym[0] == "I":
         sym = "".join(["BSE:", sym[1:]])
-    else:
-        sym = "".join(["^GSPC:", sym[1:]])
     context.bot.send_message(chat_id=update.effective_chat.id, text="Enter price")
     return PRICE
 

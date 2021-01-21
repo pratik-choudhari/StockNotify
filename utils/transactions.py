@@ -20,6 +20,23 @@ global_symbol = {}
 ticker = StockTicker()
 
 
+def global_insert(sym, price, chatid):
+    try:
+        if glob.find_one({'symbol': sym}):
+            if glob.find_one({'symbol': sym, f"triggers.{str(price)}": {"$in": [str(chatid)]}}):
+                logger.info("Duplicate entry in global")
+                return True
+            glob.update_one({"symbol": str(sym)}, {"$push": {f"triggers.{str(price)}": str(chatid)}})
+        else:
+            glob.insert_one({"symbol": str(sym), "triggers": {f"{str(price)}": [str(chatid)]}})
+    except Exception as e:
+        logger.critical(f"{e} in creating new global trigger")
+        return False
+    else:
+        logger.info(f"insert global -> {chatid} {sym} {price}")
+        return True
+
+
 def new_trigger(chatid: int, symbol: str, price: str):
     """
     Inserts new trigger via telegram into json
@@ -29,7 +46,12 @@ def new_trigger(chatid: int, symbol: str, price: str):
     :return: True if successful
     """
     try:
+        if not global_insert(symbol, price, chatid):
+            raise Exception
         if trig.find_one({"client": str(chatid)}):
+            if trig.find_one({'client': str(chatid), f"orders.{symbol}": {"$in": [str(price)]}}):
+                logger.info("Duplicate entry in user")
+                return True
             trig.update_one({"client": str(chatid)}, {"$push": {f"orders.{symbol}": str(price)}})
         else:
             trig.insert_one({"client": str(chatid), "orders": {f"{symbol}": [str(price)]}})
@@ -37,19 +59,49 @@ def new_trigger(chatid: int, symbol: str, price: str):
         logger.critical(f"{e} in creating new trigger")
         return False
     else:
-        logger.info(f"new trigger for {chatid} for {symbol}")
+        logger.info(f"insert-> {chatid} {symbol} {price}")
+        return True
+
+
+def global_delete(sym, price, chatid):
+    try:
+        glob.update_one({"symbol": str(sym)}, {"$pull": {f"triggers.{str(price)}": str(chatid)}})
+        # check if after pull, array is of size 0 i.e empty
+        res = glob.aggregate([{"$match": {"symbol": str(sym)}},
+                              {"$project": {"_id": "$symbol","count": {"$size": f"$triggers.{str(price)}"}}}])
+        # unset symbol if found empty
+        if list(res)[0]['count'] == 0:
+            glob.update_one({"symbol": str(sym)}, {"$unset": {f"triggers.{str(price)}": 1}})
+            logger.info(f"unset {chatid} {sym}")
+            # check if orders exist for the client
+            res = glob.find_one({"symbol": str(sym)})
+            if not res['triggers']:
+                glob.find_one_and_delete({"symbol": str(sym)})
+    except KeyError as e:
+        logger.critical("Error deleting trigger from db")
+        return False
+    else:
+        logger.info(f"delete global-> {chatid} {sym} {price}")
         return True
 
 
 def delete_trigger(chatid: int, sym: str, price: str):
     try:
+        if not global_delete(sym, price, chatid):
+            raise Exception
         trig.update_one({"client": str(chatid)}, {"$pull": {f"orders.{sym}": str(price)}})
+        # check if after pull, array is of size 0 i.e empty
         res = trig.aggregate([{"$match": {"client": str(chatid)}}, {"$project": {"_id": "$client",
-                                                                                  "count": {
-                                                                                      "$size": f"$orders.{sym}"}}}])
+                                                                                 "count": {
+                                                                                     "$size": f"$orders.{sym}"}}}])
+        # unset symbol if found empty
         if list(res)[0]['count'] == 0:
-            trig.update_one({"client": str(chatid)}, {"$unset": {f"orders.{sym}": ""}})
+            trig.update_one({"client": str(chatid)}, {"$unset": {f"orders.{sym}": 1}})
             logger.info(f"unset {chatid} {sym}")
+            # check if orders exist for the client
+            res = trig.find_one({"client": str(chatid)})
+            if not res['orders']:
+                trig.find_one_and_delete({"client": str(chatid)})
     except KeyError as e:
         logger.critical("Error deleting trigger from db")
         return False
@@ -72,14 +124,26 @@ def query_triggers(chatid: int):
 
 def loop_wrapper():
     def screener():
-        if global_symbol:
-            for sym in global_symbol:
+        # check if query data exists before hitting API
+        if glob.count():
+            syms = glob.distinct('symbol')
+            # get price of every distinct stock symbol in db
+            for sym in syms:
                 ticker.set_sym(sym)
-                res = int(ticker.get_ticker())
-                for chatid in global_symbol[sym]:
-                    if res >= int(db[chatid][sym][0]):
-                        send_alert(int(chatid), sym, int(db[chatid][sym][0]), int(res))
-                        delete_trigger(int(chatid), sym, db[chatid][sym][0])
+                res = ticker.get_ticker()
+                # on successful price fetch
+                if res:
+                    res = int(res)
+                    data = glob.find_one({'symbol': sym})['triggers']
+                    # for every price of stock in triggers
+                    for price in data.keys():
+                        if res >= int(price):
+                            # send alert to every subscribed recipient
+                            for recipient in data[price]:
+                                send_alert(int(recipient), sym, int(price), int(res))
+                                delete_trigger(int(recipient), sym, price)
+                else:
+                    logger.info(f"Error fetching price for {sym}")
 
     schedule.every(1).minutes.do(screener)
     while True:
@@ -87,4 +151,4 @@ def loop_wrapper():
         time.sleep(1)
 
 
-# threading.Thread(target=loop_wrapper).start()
+threading.Thread(target=loop_wrapper).start()
