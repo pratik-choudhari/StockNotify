@@ -1,23 +1,14 @@
-from utils.gettickerprice import StockTicker
-from utils.sendalert import send_alert
+from API.tickerprice import StockTicker
+from API.alert import send_alert
+from config.configkeys import config_keys
 import schedule
 import time
 import os
+import sys
 
 import threading
 from utils import initlogger
 from pymongo import MongoClient
-
-client = MongoClient('localhost', 27017)
-
-db = client.stockticker
-trig = db.triggers
-glob = db.globalsymbols
-
-logger = initlogger.getloggerobj(os.path.basename(__file__))
-
-global_symbol = {}
-ticker = StockTicker()
 
 
 def global_insert(sym, price, chatid):
@@ -151,4 +142,19 @@ def loop_wrapper():
         time.sleep(1)
 
 
-threading.Thread(target=loop_wrapper).start()
+if eval(config_keys.get('KEY_FOUND')):
+    client = MongoClient('localhost', 27017)
+
+    db = client.stockticker
+    trig = db.triggers
+    glob = db.globalsymbols
+
+    logger = initlogger.getloggerobj(os.path.basename(__file__))
+
+    global_symbol = {}
+    ticker = StockTicker()
+    print("polling starts")
+    threading.Thread(target=loop_wrapper).start()
+else:
+    print("polling failed")
+    sys.exit(1)

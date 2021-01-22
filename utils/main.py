@@ -1,26 +1,32 @@
 import json
 import os
+from config.configkeys import config_keys
 from utils import initlogger
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
-from utils.transactions import new_trigger, query_triggers, delete_trigger
-from utils.gettickerprice import StockTicker
+from database.db_engine import new_trigger, query_triggers, delete_trigger
+from API.tickerprice import StockTicker
+
+logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh = range(7)
 
 
-# set up logger object
-logger = initlogger.getloggerobj(os.path.basename(__file__))
-logger.info("Logger init")
+def set_globals():
+    global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh
+    # set up logger object
+    logger = initlogger.getloggerobj(os.path.basename(__file__))
+    logger.info("Logger init")
 
-ticker = StockTicker()
-SYMBOL, PRICE, DELETE = range(3)
-sym, thresh = "", 0
-# db = {1129060218: {'LON:CEY': ['100', '101'], 'BSE:SBIN' :['325'], 'BSE:HAL': ['345', '637']}}
-# db = {}
+    ticker = StockTicker()
+    SYMBOL, PRICE, DELETE = range(3)
+    sym, thresh = "", 0
 
 
 def telegrambot():
-    with open("config/Telegram_token.json", "r") as f:
+    if not eval(config_keys.get('KEY_FOUND')):
+        return False
+    set_globals()
+    with open(r"./config/Telegram_token.json", "r") as f:
         api_key = json.load(f)
 
     updater = Updater(token=api_key["key"], use_context=True)
@@ -62,8 +68,9 @@ def help_cmd(update, context):
           "*Commands:*\n" \
           " - /start to start the conversation\n" \
           " - /cancel to end the conversation\n" \
-          " - /editgtt to list and edit triggers\n" \
-          "*All LTP displayed are close prices.\n*" \
+          " - /edit to edit triggers\n" \
+          " - /list to list triggers\n" \
+          "*All LTP displayed are close prices and in near real-time\n*" \
           "*Duplicate triggers will be ignore, even if acknowledgement is sent*"
     context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode='markdown')
 
@@ -186,4 +193,4 @@ def get_curr_price(s):
 
 
 if __name__ == "__main__":
-    telegrambot()
+    pass
