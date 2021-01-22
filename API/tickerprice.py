@@ -1,5 +1,5 @@
-from alpha_vantage.timeseries import TimeSeries
 import json
+from alpha_vantage.timeseries import TimeSeries
 
 useAPI = False
 

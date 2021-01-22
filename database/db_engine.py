@@ -1,14 +1,14 @@
-from API.tickerprice import StockTicker
-from API.alert import send_alert
-from config.configkeys import config_keys
-import schedule
-import time
 import os
 import sys
-
+import time
+import schedule
 import threading
+
 from utils import initlogger
 from pymongo import MongoClient
+from API.alert import send_alert
+from API.tickerprice import StockTicker
+from config.configkeys import config_keys
 
 
 def global_insert(sym, price, chatid):

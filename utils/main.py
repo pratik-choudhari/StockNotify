@@ -1,17 +1,23 @@
-import json
 import os
-from config.configkeys import config_keys
-from utils import initlogger
+import json
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
-from database.db_engine import new_trigger, query_triggers, delete_trigger
+
+from utils import initlogger
 from API.tickerprice import StockTicker
+from config.configkeys import config_keys
+from database.db_engine import new_trigger, query_triggers, delete_trigger
 
 logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh = range(7)
+index_data = {}
 
 
 def set_globals():
+    """
+    sets global variables required for logging and the bot
+    :return: None
+    """
     global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh
     # set up logger object
     logger = initlogger.getloggerobj(os.path.basename(__file__))
@@ -23,6 +29,11 @@ def set_globals():
 
 
 def telegrambot():
+    """
+    Driver telegram bot function.
+    Includes creation of conversation and command handling
+    :return: None
+    """
     if not eval(config_keys.get('KEY_FOUND')):
         return False
     set_globals()
@@ -43,7 +54,7 @@ def telegrambot():
     help_handler = CommandHandler('help', help_cmd)
     list_handler = CommandHandler('list', list_triggers)
     update_handler = ConversationHandler(
-        entry_points=[CommandHandler('editgtt', list_wrapper)],
+        entry_points=[CommandHandler('edit', edit_triggers)],
         states={
             DELETE: [MessageHandler(Filters.regex("^[0-9]{1}$"), update_triggers)]},
         fallbacks=[CommandHandler('cancel', cancel)]
@@ -59,6 +70,10 @@ def telegrambot():
 
 
 def help_cmd(update, context):
+    """
+    send help text to user
+    :return: None
+    """
     msg = "*Symbols:*\n" \
           " - For indian stocks prefix 'i' or 'I'\n" \
           " - For US stocks directly enter stock symbol.\n" \
@@ -76,6 +91,10 @@ def help_cmd(update, context):
 
 
 def start_cmd(update, context):
+    """
+    entry into conversation
+    :return: next stage
+    """
     context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to stock ticker bot📈, "
                                                                     "Use /help to know more, "
                                                                     "please enter stock symbol")
@@ -83,6 +102,10 @@ def start_cmd(update, context):
 
 
 def symbol_func(update, context):
+    """
+    input stock name
+    :return: next stage
+    """
     global sym
     sym = update.message.text.upper()
     if sym[0] == "I":
@@ -92,6 +115,10 @@ def symbol_func(update, context):
 
 
 def price_func(update, context):
+    """
+    input trigger price
+    :return: next stage
+    """
     global thresh
     thresh = update.message.text
     logger.info(f"Getting {sym} LTP")
@@ -112,6 +139,9 @@ def price_func(update, context):
 
 
 def cancel(update, context):
+    """
+    end conversation
+    """
     update.message.reply_text(
         'Ending conversation👋'
     )
@@ -122,10 +152,11 @@ def unknown(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Sorry, I didn't understand that command.")
 
 
-index_data = {}
-
-
 def list_triggers(update, context):
+    """
+    retreive and sent all valid triggers in db for a particular user
+    :return: True if successful
+    """
     global index_data
     index_data = {}
     chatid = update.effective_chat.id
@@ -147,7 +178,11 @@ def list_triggers(update, context):
     return False
 
 
-def list_wrapper(update, context):
+def edit_triggers(update, context):
+    """
+    retreive trigger number to delete
+    :return: end conversation or next stage object
+    """
     ret = list_triggers(update, context)
     if not ret:
         return ConversationHandler.END
@@ -157,10 +192,14 @@ def list_wrapper(update, context):
 
 
 def update_triggers(update, context):
+    """
+    delete triggers based on user input
+    :return: conversation end
+    """
     global index_data
     chatid = update.effective_chat.id
     indexes = sorted(list(map(lambda x: int(x), update.message.text.split())))
-    logger.debug(f"User indexes: {indexes}")
+    logger.info(f"User indexes: {indexes}")
     op_status = True
     if indexes:
         for idx in indexes:
@@ -175,13 +214,18 @@ def update_triggers(update, context):
             index_data = {}
         return ConversationHandler.END
     else:
-        logger.debug("indexes empty")
+        logger.info("user entered delete indexes empty")
         context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
         index_data = {}
         return ConversationHandler.END
 
 
 def get_curr_price(s):
+    """
+    fetch current stock price
+    :param s: symbol
+    :return: price
+    """
     ticker.set_sym(s)
     res = ticker.get_ticker()
     logger.info(f"LTP for {s}: {res}")
