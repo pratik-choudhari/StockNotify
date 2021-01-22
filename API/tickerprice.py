@@ -1,7 +1,9 @@
 import json
 from alpha_vantage.timeseries import TimeSeries
 
-useAPI = False
+from config.configkeys import config_keys
+
+useAPI = eval(config_keys['USE_API'])
 
 
 class StockTicker:

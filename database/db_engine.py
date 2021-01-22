@@ -13,6 +13,8 @@ from config.configkeys import config_keys
 
 def global_insert(sym, price, chatid):
     try:
+        if len(glob.distinct('symbol')) >= 5:
+            return False
         if glob.find_one({'symbol': sym}):
             if glob.find_one({'symbol': sym, f"triggers.{str(price)}": {"$in": [str(chatid)]}}):
                 logger.info("Duplicate entry in global")
@@ -46,8 +48,8 @@ def new_trigger(chatid: int, symbol: str, price: str):
             trig.update_one({"client": str(chatid)}, {"$push": {f"orders.{symbol}": str(price)}})
         else:
             trig.insert_one({"client": str(chatid), "orders": {f"{symbol}": [str(price)]}})
-    except Exception as e:
-        logger.critical(f"{e} in creating new trigger")
+    except Exception:
+        logger.critical(f"Error inserting in globals")
         return False
     else:
         logger.info(f"insert-> {chatid} {symbol} {price}")
