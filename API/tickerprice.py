@@ -1,6 +1,7 @@
 import json
 from alpha_vantage.timeseries import TimeSeries
-
+import datetime
+import yfinance as yf
 from config.configkeys import config_keys
 
 print()
@@ -18,14 +19,16 @@ class StockTicker:
     def get_ticker(self):
         if not useAPI:
             return 900
-        try:
-            data, meta_data = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
-            return data.iloc[0, 3]
-        except ValueError:
+        if datetime.datetime.today().weekday() not in [5, 6]:
             try:
-                data, meta_data = self.ts.get_weekly(symbol=self.sym)
-                return data.head(1).iloc[0, 3]
+                data, meta_data = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
+                return data.iloc[0, 3]
             except ValueError:
+                return False
+        else:
+            try:
+                return '{0:.2f}'.format(yf.Ticker(self.sym + ".NS").history(period='1day').iloc[0, 3])
+            except [ValueError, IndexError]:
                 return False
 
     def set_sym(self, symbol):

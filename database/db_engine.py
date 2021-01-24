@@ -126,11 +126,11 @@ def loop_wrapper():
                 res = ticker.get_ticker()
                 # on successful price fetch
                 if res:
-                    res = int(res)
+                    res = float(res)
                     data = glob.find_one({'symbol': sym})['triggers']
                     # for every price of stock in triggers
                     for price in data.keys():
-                        if res >= int(price):
+                        if res >= float(price):
                             # send alert to every subscribed recipient
                             for recipient in data[price]:
                                 send_alert(int(recipient), sym, int(price), int(res))
@@ -145,8 +145,11 @@ def loop_wrapper():
 
 
 if eval(config_keys.get('KEY_FOUND')):
-    client = MongoClient('localhost', 27017)
-
+    try:
+        client = MongoClient('localhost', 27017)
+    except Exception:
+        print("Start mongo db service")
+        sys.exit(1)
     db = client.stockticker
     trig = db.triggers
     glob = db.globalsymbols

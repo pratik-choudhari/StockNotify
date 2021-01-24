@@ -9,7 +9,7 @@ from API.tickerprice import StockTicker
 from config.configkeys import config_keys
 from database.db_engine import new_trigger, query_triggers, delete_trigger
 
-logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh = range(7)
+logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, scrip_mappings = range(8)
 index_data = {}
 
 
@@ -18,7 +18,7 @@ def set_globals():
     sets global variables required for logging and the bot
     :return: None
     """
-    global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh
+    global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, scrip_mappings
     # set up logger object
     logger = initlogger.getloggerobj(os.path.basename(__file__))
     logger.info("Logger init")
@@ -26,6 +26,7 @@ def set_globals():
     ticker = StockTicker()
     SYMBOL, PRICE, DELETE = range(3)
     sym, thresh = "", 0
+    scrip_mappings = json.load(open("./assets/scrip_mappings_sensex.json", "r"))
 
 
 def telegrambot():
@@ -75,10 +76,9 @@ def help_cmd(update, context):
     :return: None
     """
     msg = "*Symbols:*\n" \
-          " - For indian stocks prefix 'i' or 'I'\n" \
-          " - For US stocks directly enter stock symbol.\n" \
+          " - Just enter the stock symbol, I will take of the rest;)\n" \
           "*Exchange and Currency:*\n" \
-          " - Indian stock prices are fetched from BSE and are in INR.\n" \
+          " - Indian stock prices are fetched from NSE and are in INR.\n" \
           " - US stock prices are fetched from NYSE and are in USD.\n" \
           "*Commands:*\n" \
           " - /start to start the conversation\n" \
@@ -108,8 +108,9 @@ def symbol_func(update, context):
     """
     global sym
     sym = update.message.text.upper()
-    if sym[0] == "I":
-        sym = "".join(["BSE:", sym[1:]])
+    if not scrip_mappings.get(sym):
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in BSE sensex")
+        return ConversationHandler.END
     context.bot.send_message(chat_id=update.effective_chat.id, text="Enter price")
     return PRICE
 
@@ -123,14 +124,10 @@ def price_func(update, context):
     thresh = update.message.text
     logger.info(f"Getting {sym} LTP")
     curr = get_curr_price(sym)
-    if sym[:3] == "BSE":
-        currency = "₹"
-    else:
-        currency = "$"
     if curr:
         if new_trigger(update.effective_chat.id, sym, thresh):
             context.bot.send_message(chat_id=update.effective_chat.id, text=f"Screener set for {sym} at {thresh}, "
-                                                                            f"LTP is {currency}{curr}")
+                                                                            f"LTP is {curr}")
         else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="error inserting in db")
     else:

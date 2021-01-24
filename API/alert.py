@@ -13,8 +13,4 @@ bot = Bot(token=api_key["key"])
 
 def send_alert(chatid: int, sym: str, price: int, curr: int):
     logger.info(f"Triggered: {sym} at {price} for {chatid}")
-    if sym[:3] == "BSE":
-        currency = "₹"
-    else:
-        currency = "$"
-    bot.send_message(chat_id=chatid, text=f"⚠️Alert!\n{sym} triggered at {price}{currency}\ncurrent price: {curr}{currency}")
+    bot.send_message(chat_id=chatid, text=f"⚠️Alert!\n{sym} triggered at {price}\ncurrent price: {curr}")
