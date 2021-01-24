@@ -23,6 +23,7 @@ class StockTicker:
         self.sym = symbol
 
 
-ticker = StockTicker()
-ticker.set_sym("BSE:RIL")
-ticker.get_ticker()
+if __name__ == "__main__":
+    ticker = StockTicker()
+    ticker.set_sym("BSE:532659")
+    print(ticker.get_ticker())

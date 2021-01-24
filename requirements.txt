@@ -1,4 +1,7 @@
-alpha_vantage==2.2.0
-python-telegram-bot==13.1
-schedule==0.6.0
-pymongo==3.11.2
+alpha_vantage
+python-telegram-bot
+schedule
+pymongo
+requests
+beautifulsoup4
+selenium
