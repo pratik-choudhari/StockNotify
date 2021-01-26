@@ -47,7 +47,7 @@ def telegrambot():
     gtt_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start_cmd)],
         states={
-            SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z0-9: ]+$"), symbol_func)],
+            SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z0-9: -]+$"), symbol_func)],
             PRICE: [MessageHandler(Filters.regex('^[0-9]+$'), price_func)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],

@@ -4,8 +4,11 @@ import datetime
 import yfinance as yf
 from config.configkeys import config_keys
 
-print()
 useAPI = eval(config_keys['USE_API'])
+if useAPI:
+    print("Using alpha vantage API")
+else:
+    print("Using yfinance API")
 
 
 class StockTicker:
@@ -17,9 +20,7 @@ class StockTicker:
             self.sym = ""
 
     def get_ticker(self):
-        if not useAPI:
-            return 900
-        if datetime.datetime.today().weekday() not in [5, 6]:
+        if useAPI:
             try:
                 data, meta_data = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
                 return data.iloc[0, 3]
@@ -27,7 +28,7 @@ class StockTicker:
                 return False
         else:
             try:
-                return '{0:.2f}'.format(yf.Ticker(self.sym + ".NS").history(period='1day').iloc[0, 3])
+                return '{0:.2f}'.format(yf.Ticker(self.sym + ".NS").history(period='1d').iloc[0, 3])
             except [ValueError, IndexError]:
                 return False
 
