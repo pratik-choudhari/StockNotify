@@ -1,4 +1,7 @@
-pandas
 alpha_vantage
 python-telegram-bot
 schedule
+pymongo
+requests
+beautifulsoup4
+selenium
