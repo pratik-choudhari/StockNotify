@@ -9,7 +9,7 @@ from API.tickerprice import StockTicker
 from config.configkeys import config_keys
 from database.db_engine import new_trigger, query_triggers, delete_trigger
 
-logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, scrip_mappings = range(8)
+logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, nifty_stocks = range(8)
 index_data = {}
 
 
@@ -18,7 +18,7 @@ def set_globals():
     sets global variables required for logging and the bot
     :return: None
     """
-    global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, scrip_mappings
+    global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, nifty_stocks
     # set up logger object
     logger = initlogger.getloggerobj(os.path.basename(__file__))
     logger.info("Logger init")
@@ -26,7 +26,7 @@ def set_globals():
     ticker = StockTicker()
     SYMBOL, PRICE, DELETE = range(3)
     sym, thresh = "", 0
-    scrip_mappings = json.load(open("./assets/scrip_mappings_sensex.json", "r"))
+    nifty_stocks = json.load(open("./assets/nifty_components.json", "r"))['stocks']
 
 
 def telegrambot():
@@ -108,8 +108,8 @@ def symbol_func(update, context):
     """
     global sym
     sym = update.message.text.upper()
-    if not scrip_mappings.get(sym):
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in BSE sensex")
+    if sym not in nifty_stocks:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in Nifty50")
         return ConversationHandler.END
     context.bot.send_message(chat_id=update.effective_chat.id, text="Enter price")
     return PRICE
