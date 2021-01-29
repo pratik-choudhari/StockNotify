@@ -1,3 +1,5 @@
+python3 -m venv venv
+
 ### config/
 - configkeys.py
     - useAPI: True if alpha vantage to be used

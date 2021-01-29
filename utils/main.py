@@ -110,7 +110,7 @@ def symbol_func(update, context):
     global sym
     sym = update.message.text.upper()
     if sym not in nifty_stocks:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in Nifty50")
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in Nifty50 or NiftyNext50")
         return ConversationHandler.END
     context.bot.send_message(chat_id=update.effective_chat.id, text="Enter price")
     return PRICE
