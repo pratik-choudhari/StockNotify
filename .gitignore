@@ -3,3 +3,5 @@ venv/*
 __pycache__/*
 *.py[cod]
 helpers/debug.log
+config/Telegram_token.json
+config/alpha_vantage_api_key.json
