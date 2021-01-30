@@ -1,34 +1,35 @@
 import os
+import math
 import json
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters, ConversationHandler
 
+from utils.main_vars import Variables
 from utils import initlogger
 from API.tickerprice import StockTicker
 from config.configkeys import config_keys
 from database.db_engine import new_trigger, query_triggers, delete_trigger
 
-logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, scrip_mappings = range(8)
-index_data = {}
 
 
-def set_globals():
-    """
-    sets global variables required for logging and the bot
-    :return: None
-    """
-    global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, scrip_mappings
-    # set up logger object
-    logger = initlogger.getloggerobj(os.path.basename(__file__))
-    logger.info("Logger init")
 
-    ticker = StockTicker()
-    SYMBOL, PRICE, DELETE = range(3)
-    sym, thresh = "", 0
-    scrip_mappings = json.load(open("./assets/scrip_mappings_sensex.json", "r"))
+# def set_globals():
+#     """
+#     sets global variables required for logging and the bot
+#     :return: None
+#     """
+#     global logger, ticker, SYMBOL, PRICE, DELETE, sym, thresh, nifty_stocks
+#     # set up logger object
+#     v.logger = initlogger.getloggerobj(os.path.basename(__file__))
+#     v.logger.info("Logger init")
+#
+#     v.ticker = StockTicker()
+#     v.SYMBOL, PRICE, DELETE = range(3)
+#     v.sym, v.thresh = "", 0
+#     nifty_stocks = json.load(open("./assets/nifty_components.json", "r"))['stocks']
 
-
+v = Variables()
 def telegrambot():
     """
     Driver telegram bot function.
@@ -37,7 +38,6 @@ def telegrambot():
     """
     if not eval(config_keys.get('KEY_FOUND')):
         return False
-    set_globals()
     with open(r"./config/Telegram_token.json", "r") as f:
         api_key = json.load(f)
 
@@ -47,8 +47,8 @@ def telegrambot():
     gtt_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start_cmd)],
         states={
-            SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z0-9: -]+$"), symbol_func)],
-            PRICE: [MessageHandler(Filters.regex('^[0-9]+$'), price_func)],
+            v.SYMBOL: [MessageHandler(Filters.regex("^[a-zA-Z0-9: -]+$"), symbol_func)],
+            v.PRICE: [MessageHandler(Filters.regex('^[0-9]+$'), price_func)],
         },
         fallbacks=[CommandHandler('cancel', cancel)],
     )
@@ -57,7 +57,7 @@ def telegrambot():
     update_handler = ConversationHandler(
         entry_points=[CommandHandler('edit', edit_triggers)],
         states={
-            DELETE: [MessageHandler(Filters.regex("^[0-9]{1}$"), update_triggers)]},
+            v.DELETE: [MessageHandler(Filters.regex("^[0-9 ]*$"), update_triggers)]},
         fallbacks=[CommandHandler('cancel', cancel)]
     )
     unknown_handler = MessageHandler(~Filters.command, unknown)
@@ -76,16 +76,16 @@ def help_cmd(update, context):
     :return: None
     """
     msg = "*Symbols:*\n" \
-          " - Just enter the stock symbol, I will take of the rest;)\n" \
+          " - Only Nifty50 and NiftyNext50 stocks supported." \
+          " - Just enter the stock symbol, I will take care of the rest;)\n" \
           "*Exchange and Currency:*\n" \
           " - Indian stock prices are fetched from NSE and are in INR.\n" \
-          " - US stock prices are fetched from NYSE and are in USD.\n" \
+          " - Every price displayed is day close price" \
           "*Commands:*\n" \
           " - /start to start the conversation\n" \
           " - /cancel to end the conversation\n" \
           " - /edit to edit triggers\n" \
           " - /list to list triggers\n" \
-          "*All LTP displayed are close prices and in near real-time\n*" \
           "*Duplicate triggers will be ignore, even if acknowledgement is sent*"
     context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode='markdown')
 
@@ -98,7 +98,7 @@ def start_cmd(update, context):
     context.bot.send_message(chat_id=update.effective_chat.id, text="Welcome to stock ticker bot📈, "
                                                                     "Use /help to know more, "
                                                                     "please enter stock symbol")
-    return SYMBOL
+    return v.SYMBOL
 
 
 def symbol_func(update, context):
@@ -106,13 +106,12 @@ def symbol_func(update, context):
     input stock name
     :return: next stage
     """
-    global sym
-    sym = update.message.text.upper()
-    if not scrip_mappings.get(sym):
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in BSE sensex")
+    v.sym = update.message.text.upper()
+    if v.sym not in v.nifty_stocks:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Symbol is not in Nifty50 or NiftyNext50")
         return ConversationHandler.END
     context.bot.send_message(chat_id=update.effective_chat.id, text="Enter price")
-    return PRICE
+    return v.PRICE
 
 
 def price_func(update, context):
@@ -120,18 +119,20 @@ def price_func(update, context):
     input trigger price
     :return: next stage
     """
-    global thresh
-    thresh = update.message.text
-    logger.info(f"Getting {sym} LTP")
-    curr = get_curr_price(sym)
-    if curr:
-        if new_trigger(update.effective_chat.id, sym, thresh):
-            context.bot.send_message(chat_id=update.effective_chat.id, text=f"Screener set for {sym} at {thresh}, "
+    v.thresh = float(update.message.text)
+    v.logger.info(f"Getting {v.sym} LTP")
+    curr = get_curr_price(v.sym)
+    if math.isnan(curr):
+        context.bot.send_message(chat_id=update.effective_chat.id, text="API returned NaN")
+    else:
+        if curr > v.thresh:
+            context.bot.send_message(chat_id=update.effective_chat.id, text=f"LTP:{curr}. Can't set trigger, only "
+                                                                            f"bullish orders")
+        elif new_trigger(update.effective_chat.id, v.sym, v.thresh):
+            context.bot.send_message(chat_id=update.effective_chat.id, text=f"Screener set for {v.sym} at {v.thresh}, "
                                                                             f"LTP is {curr}")
         else:
             context.bot.send_message(chat_id=update.effective_chat.id, text="error inserting in db")
-    else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Cannot get LTP")
     return ConversationHandler.END
 
 
@@ -154,11 +155,10 @@ def list_triggers(update, context):
     retreive and sent all valid triggers in db for a particular user
     :return: True if successful
     """
-    global index_data
-    index_data = {}
+    v.index_data = {}
     chatid = update.effective_chat.id
     user_data = query_triggers(chatid)
-    logger.info(f"Listing trigger for {chatid}")
+    v.logger.info(f"Listing trigger for {chatid}")
     idx = 0
     if user_data:
         keys = list(user_data.keys())
@@ -166,7 +166,7 @@ def list_triggers(update, context):
         for key in keys:
             for val in user_data[key]:
                 idx += 1
-                text += f"{idx}. {key} at {int(val)}\n"
+                text += f"{idx}. {key} at {float(val)}\n"
                 index_data[idx] = [key, val]
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return True
@@ -185,7 +185,7 @@ def edit_triggers(update, context):
         return ConversationHandler.END
     else:
         context.bot.send_message(chat_id=update.effective_chat.id, text="Enter gtt number to delete\n")
-        return DELETE
+        return v.DELETE
 
 
 def update_triggers(update, context):
@@ -196,22 +196,31 @@ def update_triggers(update, context):
     global index_data
     chatid = update.effective_chat.id
     indexes = sorted(list(map(lambda x: int(x), update.message.text.split())))
-    logger.info(f"User indexes: {indexes}")
+    v.logger.info(f"User indexes: {indexes}")
     op_status = True
+    idx_error = []
     if indexes:
         for idx in indexes:
-            if not delete_trigger(chatid, index_data[idx][0], index_data[idx][1]):
-                op_status = False
-                break
+            if index_data.get(idx):
+                if not delete_trigger(chatid, index_data[idx][0], index_data[idx][1]):
+                    op_status = False
+                    break
+            else:
+                idx_error.append(str(idx))
+        if idx_error and op_status:
+            err = " ".join(idx_error)
+            v.logger.info(f"incorrect indexes {err}")
+            context.bot.send_message(chat_id=update.effective_chat.id, text=f"Incorrect indexes: {err}"
+                                                                            f", other triggers(if any) deleted")
         if not op_status:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Error in deletion in db")
-        else:
-            context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger deleted")
-            logger.debug("triggers deleted")
+        if not idx_error and op_status:
+            context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger(s) deleted")
+            v.logger.debug("triggers deleted")
             index_data = {}
         return ConversationHandler.END
     else:
-        logger.info("user entered delete indexes empty")
+        v.logger.info("user entered delete_indexes are empty")
         context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
         index_data = {}
         return ConversationHandler.END
@@ -223,12 +232,12 @@ def get_curr_price(s):
     :param s: symbol
     :return: price
     """
-    ticker.set_sym(s)
-    res = ticker.get_ticker()
-    logger.info(f"LTP for {s}: {res}")
+    v.ticker.set_sym(s)
+    res = v.ticker.get_ticker()
+    v.logger.info(f"LTP for {s}: {res}")
 
     if res:
-        return res
+        return float(res)
     else:
         return False
 

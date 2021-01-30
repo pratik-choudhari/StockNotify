@@ -1,7 +1,7 @@
 import json
-from alpha_vantage.timeseries import TimeSeries
-import datetime
+
 import yfinance as yf
+from alpha_vantage.timeseries import TimeSeries
 from config.configkeys import config_keys
 
 useAPI = eval(config_keys['USE_API'])

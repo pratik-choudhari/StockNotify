@@ -1,5 +1,5 @@
 venv/*
 .idea/*
 __pycache__/*
-*/__pycache__/*
-assets/chromedriver.exe
+*.py[cod]
+helpers/debug.log

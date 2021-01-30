@@ -1,9 +1,11 @@
 import os
 import sys
 import time
+import signal
 import schedule
 import threading
 
+import pymongo
 from utils import initlogger
 from pymongo import MongoClient
 from API.alert import send_alert
@@ -11,17 +13,25 @@ from API.tickerprice import StockTicker
 from config.configkeys import config_keys
 
 
+def encode_price(price):
+    return str(price).replace(".", "x")
+
+
+def decode_price(price):
+    return str(price).replace("x", ".")
+
+
 def global_insert(sym, price, chatid):
     try:
         if len(glob.distinct('symbol')) >= 5:
             return False
         if glob.find_one({'symbol': sym}):
-            if glob.find_one({'symbol': sym, f"triggers.{str(price)}": {"$in": [str(chatid)]}}):
+            if glob.find_one({'symbol': sym, f"triggers.{encode_price(price)}": {"$in": [str(chatid)]}}):
                 logger.info("Duplicate entry in global")
                 return True
-            glob.update_one({"symbol": str(sym)}, {"$push": {f"triggers.{str(price)}": str(chatid)}})
+            glob.update_one({"symbol": sym}, {"$push": {f"triggers.{encode_price(price)}": str(chatid)}})
         else:
-            glob.insert_one({"symbol": str(sym), "triggers": {f"{str(price)}": [str(chatid)]}})
+            glob.insert_one({"symbol": sym, "triggers": {f"{encode_price(price)}": [str(chatid)]}})
     except Exception as e:
         logger.critical(f"{e} in creating new global trigger")
         return False
@@ -58,18 +68,18 @@ def new_trigger(chatid: int, symbol: str, price: str):
 
 def global_delete(sym, price, chatid):
     try:
-        glob.update_one({"symbol": str(sym)}, {"$pull": {f"triggers.{str(price)}": str(chatid)}})
+        glob.update_one({"symbol": sym}, {"$pull": {f"triggers.{encode_price(price)}": str(chatid)}})
         # check if after pull, array is of size 0 i.e empty
-        res = glob.aggregate([{"$match": {"symbol": str(sym)}},
-                              {"$project": {"_id": "$symbol","count": {"$size": f"$triggers.{str(price)}"}}}])
+        res = glob.aggregate([{"$match": {"symbol": sym}},
+                              {"$project": {"_id": "$symbol","count": {"$size": f"$triggers.{encode_price(price)}"}}}])
         # unset symbol if found empty
         if list(res)[0]['count'] == 0:
-            glob.update_one({"symbol": str(sym)}, {"$unset": {f"triggers.{str(price)}": 1}})
+            glob.update_one({"symbol": sym}, {"$unset": {f"triggers.{encode_price(price)}": 1}})
             logger.info(f"unset {chatid} {sym}")
             # check if orders exist for the client
-            res = glob.find_one({"symbol": str(sym)})
+            res = glob.find_one({"symbol": sym})
             if not res['triggers']:
-                glob.find_one_and_delete({"symbol": str(sym)})
+                glob.find_one_and_delete({"symbol": sym})
     except KeyError as e:
         logger.critical("Error deleting trigger from db")
         return False
@@ -138,17 +148,19 @@ def loop_wrapper():
                 else:
                     logger.info(f"Error fetching price for {sym}")
 
-    schedule.every(1).minutes.do(screener)
+    schedule.every(1).day.do(screener)
     while True:
         schedule.run_pending()
         time.sleep(1)
 
 
 if eval(config_keys.get('KEY_FOUND')):
+    host = "localhost"
+    port = 27017
     try:
-        client = MongoClient('localhost', 27017)
-    except Exception:
-        print("Start mongo db service")
+        client = MongoClient(host, port)
+    except pymongo.errors.ConnectionFailure:
+        print("Error connecting to DB, Start mongo db service")
         sys.exit(1)
     db = client.stockticker
     trig = db.triggers
