@@ -76,17 +76,18 @@ def help_cmd(update, context):
     :return: None
     """
     msg = "*Symbols:*\n" \
-          " - Only Nifty50 and NiftyNext50 stocks supported." \
-          " - Just enter the stock symbol, I will take care of the rest;)\n" \
+          " - Nifty50 and NiftyNext50 stocks supported.\n" \
+          " - Enter stock symbol in any alphabetical case\n" \
           "*Exchange and Currency:*\n" \
-          " - Indian stock prices are fetched from NSE and are in INR.\n" \
-          " - Every price displayed is day close price" \
+          " - Stock prices are fetched from National Stock Exchange and are in INR.\n" \
+          " - Every price displayed is day close price.\n" \
           "*Commands:*\n" \
           " - /start to start the conversation\n" \
           " - /cancel to end the conversation\n" \
           " - /edit to edit triggers\n" \
           " - /list to list triggers\n" \
-          "*Duplicate triggers will be ignore, even if acknowledgement is sent*"
+          "*Duplicate triggers will be ignore*\n" \
+          "*Bullish orders only.*"
     context.bot.send_message(chat_id=update.effective_chat.id, text=msg, parse_mode='markdown')
 
 
@@ -167,7 +168,7 @@ def list_triggers(update, context):
             for val in user_data[key]:
                 idx += 1
                 text += f"{idx}. {key} at {float(val)}\n"
-                index_data[idx] = [key, val]
+                v.index_data[idx] = [key, val]
         context.bot.send_message(chat_id=update.effective_chat.id, text=text)
         return True
     text = "You do not have any GTTs set."
@@ -193,7 +194,6 @@ def update_triggers(update, context):
     delete triggers based on user input
     :return: conversation end
     """
-    global index_data
     chatid = update.effective_chat.id
     indexes = sorted(list(map(lambda x: int(x), update.message.text.split())))
     v.logger.info(f"User indexes: {indexes}")
@@ -201,8 +201,8 @@ def update_triggers(update, context):
     idx_error = []
     if indexes:
         for idx in indexes:
-            if index_data.get(idx):
-                if not delete_trigger(chatid, index_data[idx][0], index_data[idx][1]):
+            if v.index_data.get(idx):
+                if not delete_trigger(chatid, v.index_data[idx][0], v.index_data[idx][1]):
                     op_status = False
                     break
             else:
@@ -217,12 +217,12 @@ def update_triggers(update, context):
         if not idx_error and op_status:
             context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger(s) deleted")
             v.logger.debug("triggers deleted")
-            index_data = {}
+            v.index_data = {}
         return ConversationHandler.END
     else:
         v.logger.info("user entered delete_indexes are empty")
         context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
-        index_data = {}
+        v.index_data = {}
         return ConversationHandler.END
 
 

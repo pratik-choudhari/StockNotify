@@ -139,6 +139,7 @@ def loop_wrapper():
                     data = glob.find_one({'symbol': sym})['triggers']
                     # for every price of stock in triggers
                     for price in data.keys():
+                        price = decode_price(price)
                         if res >= float(price):
                             # send alert to every subscribed recipient
                             for recipient in data[price]:
@@ -147,7 +148,8 @@ def loop_wrapper():
                 else:
                     logger.info(f"Error fetching price for {sym}")
 
-    schedule.every(1).day.do(screener)
+    schedule.every(1).minute.do(screener)
+    # schedule.every(1).day.do(screener)
     while True:
         schedule.run_pending()
         time.sleep(1)
