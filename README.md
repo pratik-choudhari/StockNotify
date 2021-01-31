@@ -9,6 +9,7 @@ StockNotify is a telegram bot which can be deployed for intraday signals and tim
 In stock markets, traders/investors need to know when a certain stock crosses their desired price tag. This can be done by using paid services which allow users to set these triggers.
 Using python and a few libraries, this can be achieved free of cost.
 
+Sample screenshots here: [./images](https://github.com/pratik-choudhari/StockNotify/tree/main/images)
 ## Background
 ![Candle stick price points](images/candlestick_price.jpg)
 
