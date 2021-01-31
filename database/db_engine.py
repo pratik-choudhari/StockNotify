@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import signal
 import schedule
 import threading
 
@@ -71,7 +70,7 @@ def global_delete(sym, price, chatid):
         glob.update_one({"symbol": sym}, {"$pull": {f"triggers.{encode_price(price)}": str(chatid)}})
         # check if after pull, array is of size 0 i.e empty
         res = glob.aggregate([{"$match": {"symbol": sym}},
-                              {"$project": {"_id": "$symbol","count": {"$size": f"$triggers.{encode_price(price)}"}}}])
+                              {"$project": {"_id": "$symbol", "count": {"$size": f"$triggers.{encode_price(price)}"}}}])
         # unset symbol if found empty
         if list(res)[0]['count'] == 0:
             glob.update_one({"symbol": sym}, {"$unset": {f"triggers.{encode_price(price)}": 1}})
@@ -80,7 +79,7 @@ def global_delete(sym, price, chatid):
             res = glob.find_one({"symbol": sym})
             if not res['triggers']:
                 glob.find_one_and_delete({"symbol": sym})
-    except KeyError as e:
+    except KeyError:
         logger.critical("Error deleting trigger from db")
         return False
     else:
@@ -105,7 +104,7 @@ def delete_trigger(chatid: int, sym: str, price: str):
             res = trig.find_one({"client": str(chatid)})
             if not res['orders']:
                 trig.find_one_and_delete({"client": str(chatid)})
-    except KeyError as e:
+    except KeyError:
         logger.critical("Error deleting trigger from db")
         return False
     else:
@@ -120,7 +119,7 @@ def query_triggers(chatid: int):
             return res['orders']
         else:
             return False
-    except KeyError as e:
+    except KeyError:
         logger.critical("Error listing trigger from db")
         return False
 
