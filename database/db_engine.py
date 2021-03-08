@@ -154,7 +154,7 @@ def loop_wrapper():
         time.sleep(1)
 
 
-if eval(config_keys.get('KEY_FOUND')):
+if config_keys.get('KEY_FOUND'):
     host = "localhost"
     port = 27017
     try:
