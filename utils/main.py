@@ -184,9 +184,8 @@ def edit_triggers(update, context):
     ret = list_triggers(update, context)
     if not ret:
         return ConversationHandler.END
-    else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Enter gtt number to delete\n")
-        return v.DELETE
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Enter gtt number to delete\n")
+    return v.DELETE
 
 
 def update_triggers(update, context):
@@ -195,7 +194,7 @@ def update_triggers(update, context):
     :return: conversation end
     """
     chatid = update.effective_chat.id
-    indexes = sorted(list(map(lambda x: int(x), update.message.text.split())))
+    indexes = sorted(list(map(int, update.message.text.split())))
     v.logger.info(f"User indexes: {indexes}")
     op_status = True
     idx_error = []
@@ -219,11 +218,10 @@ def update_triggers(update, context):
             v.logger.debug("triggers deleted")
             v.index_data = {}
         return ConversationHandler.END
-    else:
-        v.logger.info("user entered delete_indexes are empty")
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
-        v.index_data = {}
-        return ConversationHandler.END
+    v.logger.info("user entered delete_indexes are empty")
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Trigger not found")
+    v.index_data = {}
+    return ConversationHandler.END
 
 
 def get_curr_price(s):
@@ -238,8 +236,7 @@ def get_curr_price(s):
 
     if res:
         return float(res)
-    else:
-        return False
+    return False
 
 
 if __name__ == "__main__":
