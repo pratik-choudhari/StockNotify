@@ -36,7 +36,7 @@ def telegrambot():
     Includes creation of conversation and command handling
     :return: None
     """
-    if not eval(config_keys.get('KEY_FOUND')):
+    if not config_keys.get('KEY_FOUND'):
         return False
     with open(r"./config/Telegram_token.json", "r") as f:
         api_key = json.load(f)
