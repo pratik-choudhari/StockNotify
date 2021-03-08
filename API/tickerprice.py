@@ -4,7 +4,7 @@ import yfinance as yf
 from alpha_vantage.timeseries import TimeSeries
 from config.configkeys import config_keys
 
-useAPI = eval(config_keys['USE_API'])
+useAPI = config_keys['USE_API']
 if useAPI:
     print("Using alpha vantage API")
 else:
