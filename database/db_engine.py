@@ -117,8 +117,7 @@ def query_triggers(chatid: int):
         res = trig.find_one({"client": str(chatid)})
         if res:
             return res['orders']
-        else:
-            return False
+        return False
     except KeyError:
         logger.critical("Error listing trigger from db")
         return False
