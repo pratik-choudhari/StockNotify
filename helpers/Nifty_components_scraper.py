@@ -18,7 +18,7 @@ def nifty50():
     for row in rows:
         try:
             nifty_stocks["stocks"].append(row.find_element_by_tag_name("td").find_element_by_tag_name("a").text)
-        except selenium.common.exceptions.NoSuchElementException as e:
+        except selenium.common.exceptions.NoSuchElementException:
             print("Element not found")
     driver.close()
     return nifty_stocks
