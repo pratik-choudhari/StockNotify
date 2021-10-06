@@ -58,7 +58,7 @@ def new_trigger(chatid: int, symbol: str, price: str):
         else:
             trig.insert_one({"client": str(chatid), "orders": {f"{symbol}": [str(price)]}})
     except Exception:
-        logger.critical(f"Error inserting in globals")
+        logger.critical("Error inserting in globals")
         return False
     else:
         logger.info(f"insert-> {chatid} {symbol} {price}")
