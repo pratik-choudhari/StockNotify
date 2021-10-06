@@ -14,14 +14,13 @@ class StockTicker:
     def get_ticker(self):
         if datetime.datetime.today().weekday() not in [5, 6]:
             try:
-                data, meta_data = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
-                print(data)
+                data, _ = self.ts.get_intraday(symbol=self.sym, outputsize="compact", interval="1min")
                 return data
             except ValueError:
                 return False
         else:
             try:
-                data, meta_data = self.ts.get_weekly(symbol=self.sym)
+                data, _ = self.ts.get_weekly(symbol=self.sym)
                 return yf.Ticker(self.sym+".NS").history(period='1d').iloc[0, 3]
             except ValueError:
                 return False
