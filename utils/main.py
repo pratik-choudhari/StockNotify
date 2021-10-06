@@ -237,7 +237,3 @@ def get_curr_price(s):
     if res:
         return float(res)
     return False
-
-
-if __name__ == "__main__":
-    pass
